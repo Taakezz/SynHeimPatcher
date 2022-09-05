@@ -1,0 +1,11 @@
+{
+  "Nickname": "Heim Recipe Patcher",
+  "Visibility": "Visible",
+  "OneLineDescription": "Update recipes for weapons, armor, etc with the correct Heim book conditions base on keywords.",
+  "LongDescription": "",
+  "PreferredAutoVersioning": "Default",
+  "RequiredMods": [
+    "Heim.esp"
+  ],
+  "TargetedReleases": []
+}
