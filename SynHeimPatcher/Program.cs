@@ -29,9 +29,12 @@ namespace SynHeimPatcher
             }
 
             // Output keywords from map
-            foreach (var keyword in Settings.Value.KeywordToBookMapping.Keys)
+            foreach (var entry in Settings.Value.KeywordToBookMapping)
             {
-                Console.WriteLine(keyword);
+                var keyword = entry.Keyword?.FormKeyNullable?.ToString() ?? "NULL";
+                var book = entry.Book?.FormKeyNullable?.ToString() ?? "NULL";
+
+                Console.WriteLine($"{keyword}: {book}");
             }
 
             foreach (var cobjGetter in state.LoadOrder.PriorityOrder.ConstructibleObject().WinningOverrides())
@@ -66,22 +69,22 @@ namespace SynHeimPatcher
                     continue;
                 }
 
-                // @todo: Find out if there is a better way of doing this.
-                var keywordEditorId = keyworded.Keywords
-                    .Select(link => link.Resolve(state.LinkCache)?.EditorID)
-                    .FirstOrDefault(editorId => editorId != null && Settings.Value.KeywordToBookMapping.ContainsKey(editorId));
-
-                if (keywordEditorId == null)
+                // Check for mapping entry that matches the record's keywords.
+                var entry = Settings.Value.KeywordToBookMapping.FirstOrDefault(link1 => keyworded.Keywords.Any(link2 => link1.Keyword.FormKey == link2.FormKey));
+                
+                if (entry == null || entry.Book == null)
                 {
                     continue;
                 }
 
-                var mappedRecord = Settings.Value.KeywordToBookMapping[keywordEditorId];
+                var mappedRecord = entry.Book.Resolve(state.LinkCache);
 
                 if (mappedRecord == null)
                 {
                     continue;
                 }
+
+                Console.WriteLine($"Adding condition for {cobjGetter.EditorID} with Heim manual {mappedRecord.EditorID}");
 
                 var cobj = state.PatchMod.ConstructibleObjects.GetOrAddAsOverride(cobjGetter);
 

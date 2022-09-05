@@ -7,6 +7,13 @@ namespace SynHeimPatcher
     {
         public ModKey HeimEspName = "Heim.esp";
 
-        public Dictionary<string, IFormLinkGetter<IBookGetter>> KeywordToBookMapping = new();
+        public IEnumerable<MappingEntry> KeywordToBookMapping = new List<MappingEntry>();
+    }
+
+    public class MappingEntry
+    {
+        public IFormLinkGetter<IKeywordGetter>? Keyword;
+
+        public IFormLinkGetter<IBookGetter>? Book;
     }
 }
