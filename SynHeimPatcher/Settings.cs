@@ -8,6 +8,10 @@ namespace SynHeimPatcher
         public ModKey HeimEspName = "Heim.esp";
 
         public IEnumerable<MappingEntry> KeywordToBookMapping = new List<MappingEntry>();
+
+        public bool RenameBooks = false;
+
+        public bool MakeBooksWeightless = false;
     }
 
     public class MappingEntry

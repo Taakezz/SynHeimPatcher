@@ -23,7 +23,7 @@ namespace SynHeimPatcher
         public static void RunPatch(IPatcherState<ISkyrimMod, ISkyrimModGetter> state)
         {
             // Ensure we have Heim.
-            if (!state.LoadOrder.TryGetIfEnabled(Settings.Value.HeimEspName, out var heim))
+            if (!state.LoadOrder.TryGetIfEnabled(Settings.Value.HeimEspName, out var heim) || heim.Mod == null)
             {
                 throw new Exception($"Could not find {Settings.Value.HeimEspName}");
             }
@@ -37,6 +37,36 @@ namespace SynHeimPatcher
                 Console.WriteLine($"{keyword}: {book}");
             }
 
+            // Process Heim books.
+            if (Settings.Value.RenameBooks || Settings.Value.MakeBooksWeightless)
+            {
+                foreach (var bookGetter in heim.Mod.Books)
+                {
+                    if (!state.LinkCache.TryResolve<IBookGetter>(bookGetter.FormKey, out var winner, ResolveTarget.Winner))
+                    {
+                        continue;
+                    }
+
+                    var copied = state.PatchMod.Books.GetOrAddAsOverride(winner);
+
+                    if (copied == null || copied.Name == null)
+                    {
+                        continue;
+                    }
+
+                    if (Settings.Value.RenameBooks)
+                    {
+                        copied.Name = $"(Heim) {copied.Name.String}";
+                    }
+
+                    if (Settings.Value.MakeBooksWeightless)
+                    {
+                        copied.Weight = 0;
+                    }
+                }
+            }
+
+            // Process recipes.
             foreach (var cobjGetter in state.LoadOrder.PriorityOrder.ConstructibleObject().WinningOverrides())
             {
                 // Ignore tempering recipes
