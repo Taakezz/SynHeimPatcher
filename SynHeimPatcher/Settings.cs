@@ -4,13 +4,13 @@ using Mutagen.Bethesda.Plugins.Aspects;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Plugins.Cache;
- 
+
 namespace SynHeimPatcher
 {
     public class Program
     {
         static Lazy<Settings> Settings = null!;
- 
+
         public static async Task<int> Main(string[] args)
         {
             return await SynthesisPipeline.Instance
@@ -19,7 +19,7 @@ namespace SynHeimPatcher
                 .SetTypicalOpen(GameRelease.SkyrimSE, "YourPatcher.esp")
                 .Run(args);
         }
- 
+
         public static void RunPatch(IPatcherState<ISkyrimMod, ISkyrimModGetter> state)
         {
             //Process CraftingSmithingSkyforge [KYWD:000F46CE]
@@ -27,22 +27,22 @@ namespace SynHeimPatcher
             {
                 throw new Exception($"Could not find {Settings.Value.HeimEspName}");
             }
- 
+
             // Ensure we have Heim.
             if (!state.LoadOrder.TryGetIfEnabled(Settings.Value.HeimEspName, out var heim) || heim.Mod == null)
             {
                 throw new Exception($"Could not find {Settings.Value.HeimEspName}");
             }
- 
+
             // Output keywords from map
             foreach (var entry in Settings.Value.KeywordToBookMapping)
             {
                 var keyword = entry.Keyword?.FormKeyNullable?.ToString() ?? "NULL";
                 var book = entry.Book?.FormKeyNullable?.ToString() ?? "NULL";
- 
+
                 Console.WriteLine($"{keyword}: {book}");
             }
- 
+
             // Process Heim books.
             if (Settings.Value.RenameBooks || Settings.Value.MakeBooksWeightless)
             {
@@ -52,26 +52,26 @@ namespace SynHeimPatcher
                     {
                         continue;
                     }
- 
+
                     var copied = state.PatchMod.Books.GetOrAddAsOverride(winner);
- 
+
                     if (copied == null || copied.Name == null)
                     {
                         continue;
                     }
- 
+
                     if (Settings.Value.RenameBooks)
                     {
                         copied.Name = $"Crafting Tome: {copied.Name.String}";
                     }
- 
+
                     if (Settings.Value.MakeBooksWeightless)
                     {
                         copied.Weight = 0;
                     }
                 }
             }
- 
+
             Dictionary<string, FormKey> book_records = new Dictionary<string, FormKey>();
             Console.WriteLine("Book entries:");
             foreach (var book_recond in heim.Mod.Books.Records)
@@ -79,11 +79,11 @@ namespace SynHeimPatcher
                 if (!string.IsNullOrEmpty(book_recond.EditorID))
                 {
                     book_records[book_recond.EditorID] = book_recond.FormKey;
- 
+
                     Console.WriteLine($"{book_recond.EditorID}: {book_recond.FormKey}");
                 }
             }
- 
+
             // Process recipes.
             string[] blacklisted_keywords = new string[] { "VendorItemAnimalPart", "VendorItemAnimalHide", "VendorItemOreIngot" };
             foreach (var cobjGetter in state.LoadOrder.PriorityOrder.ConstructibleObject().WinningOverrides())
@@ -93,38 +93,38 @@ namespace SynHeimPatcher
                 {
                     continue;
                 }
- 
+
                 // Ignore recipes which already include a condition for a Heim book record.
                 if (cobjGetter.Conditions.Any(condition => IsHeimBookCondition(condition, state.LinkCache, heim.ModKey)))
                 {
                     continue;
                 }
- 
+
                 // Resolve created object record.
                 if (!cobjGetter.CreatedObject.TryResolve<ISkyrimMajorRecordGetter>(state.LinkCache, out var record))
                 {
                     continue;
                 }
- 
+
                 //List<string?> perks = cobjGetter.Conditions.Where(condition => isPerkCondition(condition, state.LinkCache)).Select(condition => ((IFunctionConditionDataGetter)condition).ParameterOneString).ToList();
- 
+
                 Dictionary<string, FormKey> perk_eeids = new Dictionary<string, FormKey>();
                 foreach (var perkRecord in cobjGetter.Conditions.Where(condition => isPerkCondition(condition, state.LinkCache)).Select(condition => ((IFunctionConditionDataGetter)condition.Data).ParameterOneRecord))
                 {
                     //File.AppendAllText("perk_list.txt", $"Detected following perk affecting {cobjGetter.EditorID}: {perk}.\r\n");
- 
+
                     if (!perkRecord.TryResolve(state.LinkCache, out var _record))
                     {
                         continue;
                     }
- 
+
                     if (!string.IsNullOrEmpty(_record.EditorID))
                     {
                         perk_eeids[_record.EditorID] = perkRecord.FormKey;
                     }
- 
+
                 }
- 
+
                 Dictionary<string, FormKey> keyword_eeids = new Dictionary<string, FormKey>();
                 if (record is IKeywordedGetter keyworded && keyworded != null && keyworded.Keywords?.Count > 0)
                 {
@@ -134,23 +134,23 @@ namespace SynHeimPatcher
                         {
                             continue;
                         }
- 
+
                         if (!string.IsNullOrEmpty(_record.EditorID))
                         {
                             keyword_eeids[_record.EditorID] = keyword.FormKey;
                         }
                     }
                 }
- 
+
                 if (keyword_eeids.Keys.Any(keyword => Array.IndexOf(blacklisted_keywords, keyword) > 0))
                 {
                     continue;
                 }
- 
+
                 string book_record_eeid = "";
                 bool skyforge_smithing = false; //CraftingSmithingSkyforge [KYWD:000F46CE]
                 bool only_night = false;
- 
+
                 //Condition matching by keywords
                 foreach (string? keyword in keyword_eeids.Keys)
                 {
@@ -163,18 +163,18 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_bows";
                             }
- 
+
                             break;
                         case "VendorItemDaedricArtifact":
                         case "DaedricArtifact":
                             //Heim_Daedric "Beyond Mundus" [BOOK:FE025809]
                             Console.WriteLine($"{cobjGetter.EditorID} - Perk: {keyword}");
- 
+
                             if (string.IsNullOrEmpty(book_record_eeid))
                             {
                                 book_record_eeid = "Heim_Daedric";
                             }
- 
+
                             only_night = true;
                             skyforge_smithing = true;
                             break;
@@ -186,7 +186,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_Jewelry";
                             }
- 
+
                             break;
                         case "WeapMaterialDraugr":
                         case "WeapMaterialDraugrHoned":
@@ -209,7 +209,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_Forsworn";
                             }
- 
+
                             break;
                         case "ArmorDarkBrotherhood":
                             //Heim_DB "Dark Brotherhood Schematics" [BOOK:FE67F84B]
@@ -218,7 +218,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_DB";
                             }
- 
+
                             break;
                         case "GiftThiefSpecial":
                         case "ArmorMaterialThievesGuild":
@@ -228,7 +228,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_TG";
                             }
- 
+
                             break;
                         case "WAF_WeapMaterialRedguard":
                             //Heim_Exotic "Exotic Crafting" [BOOK:FE67F846]
@@ -237,7 +237,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_Exotic";
                             }
- 
+
                             break;
                         case "ArmorMaterialIron":
                         case "ArmorMaterialIronBanded":
@@ -247,7 +247,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_Iron1";
                             }
- 
+
                             break;
                         case "ArmorMaterialHide":
                         case "ArmorMaterialLeather":
@@ -260,9 +260,9 @@ namespace SynHeimPatcher
                             break;
                     }
                 }
- 
+
                 //Condition matching by perks
- 
+
                 foreach (string perk in perk_eeids.Keys)
                 {
                     switch (perk)
@@ -270,18 +270,18 @@ namespace SynHeimPatcher
                         case "DaedricSmithing":
                             //Heim_Daedric "Beyond Mundus" [BOOK:FE025809]
                             Console.WriteLine($"{cobjGetter.EditorID} - Perk: {perk}");
- 
+
                             book_record_eeid = "Heim_Daedric";
- 
+
                             only_night = true;
                             skyforge_smithing = true;
                             break;
                         case "DragonArmor":
                             //Heim_Dragon "Blades Traditions and Techniques" [BOOK:FE025807]
                             Console.WriteLine($"{cobjGetter.EditorID} - Perk: {perk}");
- 
+
                             book_record_eeid = "Heim_Dragon";
- 
+
                             skyforge_smithing = true;
                             break;
                         case "EbonySmithing":
@@ -291,9 +291,9 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_Ebony";
                             }
- 
+
                             skyforge_smithing = true;
- 
+
                             //CraftingSmithingSkyforge [KYWD:000F46CE]
                             break;
                         case "GlassSmithing":
@@ -304,7 +304,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_Glass1";
                             }
- 
+
                             break;
                         case "OrcishSmithing":
                             Console.WriteLine($"{cobjGetter.EditorID} - Perk: {perk}");
@@ -321,7 +321,7 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_Dwarven";
                             }
- 
+
                             break;
                         case "AdvancedArmors":
                             //Heim_advanced "Advanced Armors" [BOOK:FE025801]
@@ -330,14 +330,14 @@ namespace SynHeimPatcher
                             {
                                 book_record_eeid = "Heim_advanced";
                             }
- 
+
                             break;
                         case "SteelSmithing":
                             string[] dawnguard_keywords = new string[] { "WeapMaterialSilver", "DLC1DawnguardItem", "DLC1ArmorMaterialDawnguard" };
                             string[] imperial_keywords = new string[] { "ArmorMaterialImperialLight", "ArmorMaterialImperialHeavy", "WeapMaterialImperial" };
                             string[] dunner_keywords = new string[] { "DLC2ArmorMaterialBonemoldHeavy", "DLC2ArmorMaterialChitinLight", "DLC2ArmorMaterialChitinHeavy" };
                             Console.WriteLine($"{cobjGetter.EditorID} - Perk: {perk}");
- 
+
                             if (keyword_eeids.Keys.Any(eeid => Array.IndexOf(dawnguard_keywords, eeid) > 0))
                             {
                                 //Heim_WitchHunter "Witch Hunters New & Old"[BOOK: FE67F82C]
@@ -378,45 +378,45 @@ namespace SynHeimPatcher
                             break;
                     }
                 }
- 
+
                 if (!string.IsNullOrEmpty(book_record_eeid))
                 {
                     Console.WriteLine($"{cobjGetter.EditorID} - Perks: {string.Join(", ", perk_eeids.Keys)}");
                     Console.WriteLine($"{cobjGetter.EditorID} - Keywords: {string.Join(", ", keyword_eeids.Keys)}");
                     Console.WriteLine($"Adding condition for {cobjGetter.EditorID} with Heim manual {book_record_eeid}");
- 
+
                     var cobj = state.PatchMod.ConstructibleObjects.GetOrAddAsOverride(cobjGetter);
- 
+
                     FunctionConditionData functionCondition = new()
                     {
                         Function = Condition.Function.GetItemCount
                     };
- 
+
                     functionCondition.ParameterOneRecord.FormKey = book_records[book_record_eeid];
- 
+
                     ConditionFloat hasItemCondition = new()
                     {
                         CompareOperator = CompareOperator.GreaterThan,
                         ComparisonValue = 0,
                         Data = functionCondition,
                     };
- 
+
                     cobj.Conditions.Add(hasItemCondition);
- 
+
                     if (skyforge_smithing && cobj.WorkbenchKeyword.FormKey == skyrim.Mod.Keywords.First(keyword => keyword.EditorID == "CraftingSmithingForge").FormKey)
                     {
                         //CraftingSmithingSkyforge [KYWD:000F46CE]
                         cobj.WorkbenchKeyword.SetTo(skyrim.Mod.Keywords.First(keyword => keyword.EditorID == "CraftingSmithingSkyforge").FormKey);
- 
+
                     }
- 
+
                     if (only_night)
                     {
                         FunctionConditionData _functionCondition = new()
                         {
                             Function = Condition.Function.GetCurrentTime
                         };
- 
+
                         ConditionFloat _hasItemCondition1 = new()
                         {
                             CompareOperator = CompareOperator.LessThanOrEqualTo,
@@ -424,7 +424,7 @@ namespace SynHeimPatcher
                             Data = _functionCondition,
                             Flags = Condition.Flag.OR
                         };
- 
+
                         ConditionFloat _hasItemCondition2 = new()
                         {
                             CompareOperator = CompareOperator.GreaterThanOrEqualTo,
@@ -432,63 +432,63 @@ namespace SynHeimPatcher
                             Data = _functionCondition,
                             Flags = Condition.Flag.OR
                         };
- 
+
                         cobj.Conditions.Add(_hasItemCondition1);
                         cobj.Conditions.Add(_hasItemCondition2);
                     }
                 }
- 
+
                 //Add switch logic to add depending on the detected Perks
- 
+
                 // Ignore records without keywords.
                 /*if (record is not IKeywordedGetter _keyworded)
                 {
                     continue;
                 }
- 
+
                 // Ensure created object has keywords.
                 if (_keyworded == null || _keyworded.Keywords == null || _keyworded.Keywords.Count == 0)
                 {
                     continue;
                 }
- 
+
                 // Check for mapping entry that matches the record's keywords.
                 var entry = Settings.Value.KeywordToBookMapping.FirstOrDefault(link1 => _keyworded.Keywords.Any(link2 => link1.Keyword.FormKey == link2.FormKey));
- 
+
                 if (entry == null || entry.Book == null)
                 {
                     continue;
                 }
- 
+
                 var mappedRecord = entry.Book.Resolve(state.LinkCache);
- 
+
                 if (mappedRecord == null)
                 {
                     continue;
                 }
- 
+
                 Console.WriteLine($"Adding condition for {cobjGetter.EditorID} with Heim manual {mappedRecord.EditorID}");
- 
+
                 var cobj = state.PatchMod.ConstructibleObjects.GetOrAddAsOverride(cobjGetter);
- 
+
                 FunctionConditionData functionCondition = new()
                 {
                     Function = Condition.Function.GetItemCount
                 };
- 
+
                 functionCondition.ParameterOneRecord.FormKey = mappedRecord.FormKey;
- 
+
                 ConditionFloat hasItemCondition = new()
                 {
                     CompareOperator = CompareOperator.GreaterThan,
                     ComparisonValue = 0,
                     Data = functionCondition,
                 };
- 
+
                 cobj.Conditions.Add(hasItemCondition);*/
             }
         }
- 
+
         /// <summary>
         /// Check if condition is a Heim book condition.
         /// </summary>
@@ -502,38 +502,38 @@ namespace SynHeimPatcher
             {
                 return false;
             }
- 
+
             if (fdata.Function != Condition.Function.GetItemCount)
             {
                 return false;
             }
- 
+
             if (!fdata.ParameterOneRecord.TryResolve(linkCache, out var record))
             {
                 return false;
             }
- 
+
             return record.Registration.Name == "Book" && record.FormKey.ModKey == heimModKey;
         }
- 
+
         public static bool isPerkCondition(IConditionGetter condition, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache)
         {
             if (condition.Data is not IFunctionConditionDataGetter fdata)
             {
                 return false;
             }
- 
+
             if (fdata.Function != Condition.Function.HasPerk)
             {
                 return false;
             }
- 
+
             if (!fdata.ParameterOneRecord.TryResolve(linkCache, out var record))
             {
                 return false;
             }
- 
- 
+
+
             return record.Registration.Name == "Perk";
         }
     }
